@@ -11,6 +11,8 @@
 		03A86C562818E4CA0017FA23 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A86C552818E4CA0017FA23 /* ContentView.swift */; };
 		03A86C582818E4CD0017FA23 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03A86C572818E4CD0017FA23 /* Assets.xcassets */; };
 		03A86C5B2818E4CD0017FA23 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03A86C5A2818E4CD0017FA23 /* Preview Assets.xcassets */; };
+		03A86C622818E4ED0017FA23 /* Grid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A86C612818E4ED0017FA23 /* Grid.swift */; };
+		03A86C642818F0E80017FA23 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A86C632818F0E80017FA23 /* Game.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +21,8 @@
 		03A86C552818E4CA0017FA23 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		03A86C572818E4CD0017FA23 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		03A86C5A2818E4CD0017FA23 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		03A86C612818E4ED0017FA23 /* Grid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Grid.swift; sourceTree = "<group>"; };
+		03A86C632818F0E80017FA23 /* Game.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,6 +57,8 @@
 			children = (
 				03A86C532818E4CA0017FA23 /* Match3App.swift */,
 				03A86C552818E4CA0017FA23 /* ContentView.swift */,
+				03A86C612818E4ED0017FA23 /* Grid.swift */,
+				03A86C632818F0E80017FA23 /* Game.swift */,
 				03A86C572818E4CD0017FA23 /* Assets.xcassets */,
 				03A86C592818E4CD0017FA23 /* Preview Content */,
 			);
@@ -138,6 +144,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				03A86C562818E4CA0017FA23 /* ContentView.swift in Sources */,
+				03A86C622818E4ED0017FA23 /* Grid.swift in Sources */,
+				03A86C642818F0E80017FA23 /* Game.swift in Sources */,
 				03A86C542818E4CA0017FA23 /* Match3App.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
