@@ -2,78 +2,40 @@
 //  Game.swift
 //  Match3
 //
-//  Created by FanRende on 2022/4/27.
+//  Created by FanRende on 2022/4/28.
 //
 
 import SwiftUI
 
 struct Game {
     var board: Array<Grid> = [Grid]()
-    var match: Array<Game.DIRECTION> = [DIRECTION]()
     var row: Int
     var column: Int
     var size: Int
+    var disable: Bool = false
 
     init(row: Int = 5, column: Int = 5) {
         self.row = row
         self.column = column
         self.size = self.row * self.column
 
-        for _ in 0 ..< self.size {
-            self.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
+        for _ in 0 ..< self.size * 3 {
+//            self.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
+            self.board.append(Grid(Int.random(in: 1...5)))
         }
-    }
-}
-
-extension Game {
-    enum DIRECTION {
-        case NONE
-        case TOP0, TOP1, TOP2          // -__, _-_, __-
-        case BOTTOM0, BOTTOM1, BOTTOM2 // _--, -_-, --_
-        case LEFT0, LEFT1, LEFT2       // -=
-        case RIGHT0, RIGHT1, RIGHT2    // =-
-    }
-}
-
-struct GameView: View {
-    @StateObject var game = GameViewModel()
-    
-    func dragGesture(idx: Int) -> some Gesture {
-        DragGesture()
-            .onEnded({ value in
-                withAnimation(.easeOut(duration: 0.5)) {
-                    game.swapGrid(idx: idx, x: value.translation.width, y: value.translation.height)
-                }
-            })
-    }
-
-    var body: some View {
-        let columns = Array(repeating: GridItem(), count: game.property.column)
-        
-        LazyVGrid(columns: columns) {
-            ForEach(Array(game.property.board.enumerated()), id: \.element.id) { idx, grid in
-                GridView(grid: grid)
-                    .gesture(dragGesture(idx: idx))
-            }
-        }
-    }
-}
-
-struct GameView_Previews: PreviewProvider {
-    static var previews: some View {
-        GameView()
     }
 }
 
 class GameViewModel: ObservableObject {
     @Published var property: Game = Game()
     
+    init() {
+        self.judge(with_animation: false)
+    }
+    
     func resetBoard() {
-        self.property.board.removeAll()
-
-        for _ in 0 ..< self.property.size {
-            self.property.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
-        }
+        self.property.board[self.property.size ..< self.property.size * 2].shuffle()
+        self.judge(with_animation: false)
     }
     
     func swapGrid(idx: Int, x: Double, y: Double) {
@@ -86,34 +48,110 @@ class GameViewModel: ObservableObject {
             next = (y > 0) ? idx + self.property.column: idx - self.property.column
         }
         
-        if next >= 0, next < self.property.size,
+        if next >= self.property.size, next < self.property.size * 2,
            abs(next % self.property.column - idx % self.property.column) <= 1 {
             self.property.board.swapAt(idx, next)
         }
     }
     
-    func verifyBoard() {
-        func checkHorizontal(_ idx: Int) -> Game.DIRECTION {
-            let type0 = self.property.board[idx].type
-            let type1 = self.property.board[idx+1].type
-            let type2 = self.property.board[idx+2].type
+    func judge(with_animation: Bool = true) {
+        func checkHorizontal(_ idx: Int) -> Int {
+            var matchLength = 1
+            let columnIdx = idx % self.property.column
 
-            if type1 == type2 {
-                
+            for temp in 1 ..< self.property.column - columnIdx {
+                if self.property.board[idx + temp].type == self.property.board[idx].type {
+                    matchLength += 1
+                }
+                else {
+                    break
+                }
             }
-            else if type0 == type2 {
-                
+            return matchLength
+        }
+    
+        func checkVertical(_ idx: Int) -> Int {
+            var matchLength = 1
+            var next = idx
+
+            while next < self.property.size * 2 {
+                next += self.property.column
+
+                if next < self.property.size * 2,
+                   self.property.board[next].type == self.property.board[idx].type {
+                    matchLength += 1
+                }
+                else {
+                    break
+                }
             }
-            else if type0 == type1 {
-                
-            }
-            return .NONE
+            return matchLength
         }
         
-        for _ in 0 ..< self.property.row {
-            for temp in 0 ..< self.property.column - 2 {
-                self.property.match[temp] = checkHorizontal(temp)
+        var isMatchable = false
+        var tempBoard = self.property.board[self.property.size ..< self.property.size * 2]
+        
+        for idx in self.property.size ..< self.property.size * 2 {
+            if self.property.board[idx].type > 0 {
+                let matchLength_H = checkHorizontal(idx)
+                let matchLength_V = checkVertical(idx)
+                
+                if matchLength_H >= 3 {
+                    isMatchable = true
+                    for i in idx ..< idx + matchLength_H {
+                        tempBoard[i] = Grid()
+                    }
+                }
+                if matchLength_V >= 3 {
+                    isMatchable = true
+                    for j in 0 ..< matchLength_V {
+                        tempBoard[idx + j * self.property.column] = Grid()
+                    }
+                }
             }
+            else {
+                continue
+            }
+        }
+        
+        if isMatchable {
+            self.property.board[self.property.size ..< self.property.size * 2] = tempBoard
+            dropDown(with_animation: with_animation)
+        }
+        else {
+            self.property.disable = false
+        }
+    }
+    
+    func dropDown(with_animation: Bool = true) {
+        for idx in (0 ..< self.property.size * 2).reversed() {
+            var this = idx
+            var next = idx + self.property.column
+
+            while self.property.board[this].type > 0,
+                  next < self.property.size * 2,
+                  self.property.board[next].type == 0 {
+                self.property.board.swapAt(this, next)
+                this = next
+                next += self.property.column
+            }
+        }
+        for idx in (0 ..< self.property.size) {
+            if self.property.board[idx].type == 0 {
+//                self.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
+                self.property.board[idx] = Grid(Int.random(in: 1...5))
+            }
+        }
+        
+        if with_animation {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    self.judge(with_animation: with_animation)
+                }
+            }
+        }
+        else {
+            self.judge(with_animation: with_animation)
         }
     }
 }
