@@ -15,8 +15,8 @@ struct Game {
     var disable: Bool = false
 
     init(row: Int = 5, column: Int = 5) {
-        self.row = row
-        self.column = column
+        self.row = Int(UIScreen.main.bounds.height) / Grid.size - 4
+        self.column = Int(UIScreen.main.bounds.width) / Grid.size - 2
         self.size = self.row * self.column
 
         for _ in 0 ..< self.size * 3 {
@@ -30,12 +30,12 @@ class GameViewModel: ObservableObject {
     @Published var property: Game = Game()
     
     init() {
-        self.judge(with_animation: false)
+        let _ = self.judge(with_animation: false)
     }
     
     func resetBoard() {
         self.property.board[self.property.size ..< self.property.size * 2].shuffle()
-        self.judge(with_animation: false)
+        let _ = self.judge(with_animation: false)
     }
     
     func swapGrid(idx: Int, x: Double, y: Double) {
@@ -54,7 +54,7 @@ class GameViewModel: ObservableObject {
         }
     }
     
-    func judge(with_animation: Bool = true) {
+    func judge(with_animation: Bool = true) -> Bool {
         func checkHorizontal(_ idx: Int) -> Int {
             var matchLength = 1
             let columnIdx = idx % self.property.column
@@ -116,11 +116,23 @@ class GameViewModel: ObservableObject {
         
         if isMatchable {
             self.property.board[self.property.size ..< self.property.size * 2] = tempBoard
-            dropDown(with_animation: with_animation)
+            
+            if with_animation {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.easeOut(duration: 0.5)) {
+                        self.dropDown(with_animation: with_animation)
+                    }
+                }
+            }
+            else {
+                self.dropDown(with_animation: with_animation)
+            }
         }
         else {
             self.property.disable = false
         }
+        
+        return isMatchable
     }
     
     func dropDown(with_animation: Bool = true) {
@@ -142,16 +154,16 @@ class GameViewModel: ObservableObject {
                 self.property.board[idx] = Grid(Int.random(in: 1...5))
             }
         }
-        
+
         if with_animation {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 withAnimation(.easeOut(duration: 0.5)) {
-                    self.judge(with_animation: with_animation)
+                    let _ = self.judge(with_animation: with_animation)
                 }
             }
         }
         else {
-            self.judge(with_animation: with_animation)
+            let _ = self.judge(with_animation: with_animation)
         }
     }
 }

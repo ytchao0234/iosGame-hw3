@@ -47,7 +47,9 @@ struct BoardView: View {
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         withAnimation(.easeOut(duration: 0.5)) {
-                            game.judge()
+                            if !game.judge() {
+                                game.swapGrid(idx: idx, x: value.translation.width, y: value.translation.height)
+                            }
                         }
                     }
                 }
@@ -64,6 +66,7 @@ struct BoardView: View {
             }
         }
         .padding()
+        .disabled(game.property.disable)
     }
 }
 
