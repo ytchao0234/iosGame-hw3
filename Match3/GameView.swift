@@ -50,6 +50,10 @@ struct BoardView: View {
                             if !game.judge() {
                                 game.swapGrid(idx: idx, x: value.translation.width, y: value.translation.height)
                             }
+                            else {
+                                game.property.showHint = false
+                                game.property.isMatched = true
+                            }
                         }
                     }
                 }
@@ -62,11 +66,27 @@ struct BoardView: View {
         LazyVGrid(columns: columns) {
             ForEach(Array(game.property.board.enumerated()), id: \.element.id) { idx, grid in
                 GridView(grid: grid)
+                    .overlay {
+                        ZStack {
+                            if game.property.matchHint.contains(idx) && game.property.showHint {
+                                RoundedRectangle(cornerRadius: 5)
+                                    .stroke(.yellow, lineWidth: 3)
+                            }
+                        }
+                        .animation(.easeOut(duration: 0.5), value: game.property.showHint)
+                    }
                     .gesture(dragGesture(idx: idx))
             }
         }
         .padding()
         .disabled(game.property.disable)
+        .onChange(of: game.property.disable) { value in
+            if !value && game.property.isMatched {
+                game.property.lastSwap = .now
+                game.setMatchHint()
+                game.property.isMatched = false
+            }
+        }
     }
 }
 
