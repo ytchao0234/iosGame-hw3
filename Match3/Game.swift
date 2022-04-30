@@ -21,6 +21,8 @@ struct Game {
     var disable: Bool = false
 
     init() {
+        self.row = 3
+        self.column = 3
         self.size = self.row * self.column
 
         for _ in 0 ..< self.size * 3 {
@@ -52,9 +54,23 @@ class GameViewModel: ObservableObject {
     }
     
     func resetBoard() {
-        self.property.board[self.property.size ..< self.property.size * 2].shuffle()
-        let _ = self.judge(with_animation: false)
+        withAnimation(.easeInOut(duration: 0.3)) {
+            self.property.board[self.property.size ..< self.property.size * 2].shuffle()
+            let _ = self.judge(with_animation: false)
+        }
         self.setMatchHint()
+        self.property.lastSwap = .now
+        self.property.showHint = false
+    }
+    
+    func isNextTo(idx: Int, next: Int?) -> Bool {
+        if let next = next {
+            return (self.property.size ..< self.property.size * 2).contains(next) &&
+                   abs(next % self.property.column - idx % self.property.column) <= 1
+        }
+        else {
+            return false
+        }
     }
     
     func swapGrid(idx: Int, x: Double, y: Double) {
@@ -67,8 +83,7 @@ class GameViewModel: ObservableObject {
             next = (y > 0) ? idx + self.property.column: idx - self.property.column
         }
         
-        if next >= self.property.size, next < self.property.size * 2,
-           abs(next % self.property.column - idx % self.property.column) <= 1 {
+        if isNextTo(idx: idx, next: next) {
             self.property.board.swapAt(idx, next)
         }
     }
@@ -108,23 +123,23 @@ class GameViewModel: ObservableObject {
         }
         
         var isMatchable = false
-        var tempBoard = self.property.board[self.property.size ..< self.property.size * 2]
+        var tempBoard = Array(self.property.board[self.property.size ..< self.property.size * 2])
         
-        for idx in self.property.size ..< self.property.size * 2 {
-            if self.property.board[idx].type > 0 {
-                let matchLength_H = checkHorizontal(idx)
-                let matchLength_V = checkVertical(idx)
+        for idx in 0 ..< self.property.size {
+            if self.property.board[idx + self.property.size].scale == 1 {
+                let matchLength_H = checkHorizontal(idx + self.property.size)
+                let matchLength_V = checkVertical(idx + self.property.size)
                 
                 if matchLength_H >= 3 {
                     isMatchable = true
                     for i in idx ..< idx + matchLength_H {
-                        tempBoard[i] = Grid()
+                        tempBoard[i].scale = 0.1
                     }
                 }
                 if matchLength_V >= 3 {
                     isMatchable = true
                     for j in 0 ..< matchLength_V {
-                        tempBoard[idx + j * self.property.column] = Grid()
+                        tempBoard[idx + j * self.property.column].scale = 0.1
                     }
                 }
             }
@@ -134,7 +149,7 @@ class GameViewModel: ObservableObject {
         }
         
         if isMatchable {
-            self.property.board[self.property.size ..< self.property.size * 2] = tempBoard
+            self.property.board[self.property.size ..< self.property.size * 2] = ArraySlice(tempBoard)
             
             if with_animation {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -158,16 +173,16 @@ class GameViewModel: ObservableObject {
             var this = idx
             var next = idx + self.property.column
 
-            while self.property.board[this].type > 0,
+            while self.property.board[this].scale == 1,
                   next < self.property.size * 2,
-                  self.property.board[next].type == 0 {
+                  self.property.board[next].scale < 1 {
                 self.property.board.swapAt(this, next)
                 this = next
                 next += self.property.column
             }
         }
         for idx in (0 ..< self.property.size) {
-            if self.property.board[idx].type == 0 {
+            if self.property.board[idx].scale < 1 {
 //                self.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
                 self.property.board[idx] = Grid(Int.random(in: 1...5))
             }
@@ -221,37 +236,33 @@ class GameViewModel: ObservableObject {
             
             return check(leading: leading, center: center, trailing: trailing)
         }
-        func findMatch(theSame2: Array<Int>, candidate0: Int, candidate1: Int, candidate2: Int? = nil) -> Array<Int> {
+        func findMatch(theSame2: Array<Int>, candidate0: Int?, candidate1: Int?, candidate2: Int?) -> Array<Int> {
             var result = theSame2
-            let swapGrid = (candidate0 + candidate1) / 2
 
-            if (self.property.size ..< self.property.size * 2).contains(candidate0),
-               abs(candidate0 % self.property.column - swapGrid % self.property.column) <= 1,
+            if let candidate0 = candidate0,
                self.property.board[candidate0].type == self.property.board[theSame2[0]].type {
                 result.append(candidate0)
             }
-            else if (self.property.size ..< self.property.size * 2).contains(candidate1),
-                abs(candidate1 % self.property.column - swapGrid % self.property.column) <= 1,
+            else if let candidate1 = candidate1,
                self.property.board[candidate1].type == self.property.board[theSame2[0]].type {
                 result.append(candidate1)
             }
             else if let candidate2 = candidate2,
-                (self.property.size ..< self.property.size * 2).contains(candidate2),
-                abs(candidate2 % self.property.column - swapGrid % self.property.column) <= 1,
                 self.property.board[candidate2].type == self.property.board[theSame2[0]].type {
                 result.append(candidate2)
             }
-            
+
             return result
         }
         
         var hintList = [[Int]]()
+        var candidateList = [[Int]]()
 
         for idx in self.property.size ..< self.property.size * 2 {
             let matchType_H = checkHorizontal(idx)
             let matchType_V = checkVertical(idx)
-            var candidate0: Int
-            var candidate1: Int
+            var candidate0: Int?
+            var candidate1: Int?
             var candidate2: Int? = nil
             var theSame2: Array<Int>
             
@@ -272,11 +283,27 @@ class GameViewModel: ObservableObject {
                 else {
                     candidate2 = nil
                 }
-                
+
+                let swapGrid = (candidate0! + candidate1!) / 2
+                candidate0 = isNextTo(idx: swapGrid, next: candidate0) ? candidate0 : nil
+                candidate1 = isNextTo(idx: swapGrid, next: candidate1) ? candidate1 : nil
+                candidate2 = isNextTo(idx: swapGrid, next: candidate2) ? candidate1 : nil
+
                 let result = findMatch(theSame2: theSame2, candidate0: candidate0, candidate1: candidate1, candidate2: candidate2)
 
                 if result.count >= 3 {
                     hintList.append(result)
+                }
+                else {
+                    if let candidate0 = candidate0 {
+                        candidateList.append([theSame2[0], theSame2[1], candidate0])
+                    }
+                    if let candidate1 = candidate1 {
+                        candidateList.append([theSame2[0], theSame2[1], candidate1])
+                    }
+                    if let candidate2 = candidate2 {
+                        candidateList.append([theSame2[0], theSame2[1], candidate2])
+                    }
                 }
             }
             if matchType_V != .NONE {
@@ -297,16 +324,41 @@ class GameViewModel: ObservableObject {
                     candidate2 = nil
                 }
                 
+                let swapGrid = (candidate0! + candidate1!) / 2
+                candidate0 = isNextTo(idx: swapGrid, next: candidate0) ? candidate0 : nil
+                candidate1 = isNextTo(idx: swapGrid, next: candidate1) ? candidate1 : nil
+                candidate2 = isNextTo(idx: swapGrid, next: candidate2) ? candidate1 : nil
+                
                 let result = findMatch(theSame2: theSame2, candidate0: candidate0, candidate1: candidate1, candidate2: candidate2)
 
                 if result.count >= 3 {
                     hintList.append(result)
+                }
+                else {
+                    if let candidate0 = candidate0 {
+                        candidateList.append([theSame2[0], theSame2[1], candidate0])
+                    }
+                    if let candidate1 = candidate1 {
+                        candidateList.append([theSame2[0], theSame2[1], candidate1])
+                    }
+                    if let candidate2 = candidate2 {
+                        candidateList.append([theSame2[0], theSame2[1], candidate2])
+                    }
                 }
             }
         }
         
         if hintList.count > 0 {
             self.property.matchHint = hintList.randomElement()!
+        }
+        else if candidateList.count > 0 {
+            self.property.matchHint = candidateList.randomElement()!
+            let type = self.property.board[self.property.matchHint[0]].type
+            self.property.board[self.property.matchHint[2]] = Grid(type)
+            
+            if self.judge(with_animation: false) {
+                self.setMatchHint()
+            }
         }
         else {
             self.resetBoard()

@@ -17,6 +17,7 @@ struct GridView: View {
                 Image(grid.image)
                     .resizable()
                     .scaledToFit()
+                    .scaleEffect(grid.scale)
             }
         }
         .cornerRadius(5)

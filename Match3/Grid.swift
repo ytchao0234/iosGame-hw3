@@ -11,6 +11,7 @@ struct Grid: Identifiable {
     let id = UUID()
     var type: Int = 0
     var image: String = ""
+    var scale: CGFloat = 1
 //    var color: Color = .clear
     
     init(_ i: Int = 0) {
