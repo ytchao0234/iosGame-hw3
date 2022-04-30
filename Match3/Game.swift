@@ -24,6 +24,7 @@ struct Game {
 
     var timer: Timer?
     var timeLimit: TimeInterval = 30
+    var countDown: TimeInterval
     var timerLabel = String()
     var formatter = DateFormatter()
 
@@ -36,13 +37,15 @@ struct Game {
 //            self.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
             self.board.append(Grid(Int.random(in: 1...5)))
         }
-        
+
+        self.countDown = self.timeLimit
         self.formatter.dateFormat = "mm:ss"
+
         let dateComponent = DateComponents(
             calendar: .current,
             hour: 0,
-            minute: Int(self.timeLimit) / 60,
-            second: Int(self.timeLimit) % 60
+            minute: Int(self.countDown) / 60,
+            second: Int(self.countDown) % 60
         )
         self.timerLabel = self.formatter.string(from: dateComponent.date!)
     }
@@ -69,14 +72,14 @@ class GameViewModel: ObservableObject {
         self.setMatchHint()
         
         self.property.timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true, block: { timer in
-            if self.property.timeLimit != 0 && !self.property.gameOver {
-                self.property.timeLimit -= 1
+            if self.property.countDown != 0 && !self.property.gameOver {
+                self.property.countDown -= 1
 
                 let dateComponent = DateComponents(
                     calendar: .current,
                     hour: 0,
-                    minute: Int(self.property.timeLimit) / 60,
-                    second: Int(self.property.timeLimit) % 60
+                    minute: Int(self.property.countDown) / 60,
+                    second: Int(self.property.countDown) % 60
                 )
                 self.property.timerLabel = self.property.formatter.string(from: dateComponent.date!)
                 
@@ -87,7 +90,7 @@ class GameViewModel: ObservableObject {
             else {
                 self.property.timer?.invalidate()
                 
-                if self.property.timeLimit == 0 {
+                if self.property.countDown == 0 {
                     self.property.gameOver = true
                 }
             }

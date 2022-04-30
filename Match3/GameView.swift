@@ -27,12 +27,13 @@ struct GameView: View {
                 .foregroundColor(.black)
                 .offset(y: -UIScreen.main.bounds.height / 2 + 100)
             HStack {
+                let timeLimit = game.property.timeLimit
                 Capsule()
-                    .fill((game.property.timeLimit / 30 > 0.5) ? .blue : (game.property.timeLimit / 30 > 0.25) ? .yellow : .red)
+                    .fill((game.property.countDown / timeLimit > 0.5) ? .blue : (game.property.countDown / timeLimit > 0.25) ? .yellow : .red)
                     .frame(height: 10)
-                    .scaleEffect(x: game.property.timeLimit / 30, y: 1, anchor: .leading)
+                    .scaleEffect(x: game.property.countDown / timeLimit, y: 1, anchor: .leading)
                     .padding()
-                    .animation(.easeIn(duration: 1), value: game.property.timeLimit)
+                    .animation(.linear(duration: 1), value: game.property.countDown)
                 Spacer()
             }
             .offset(y: -UIScreen.main.bounds.height / 2 + 120)
