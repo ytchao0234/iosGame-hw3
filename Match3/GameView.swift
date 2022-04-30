@@ -16,12 +16,37 @@ struct GameView: View {
 
             maskView(size: CGSize(width: (Grid.size + 20) * game.property.column, height: (Grid.size + 8) * game.property.row))
                 .allowsHitTesting(false)
+
+            Text("\(game.property.score)")
+                .font(.largeTitle)
+                .foregroundColor(.black)
+                .offset(y: -UIScreen.main.bounds.height / 2 + 50)
+            
+            Text("\(game.property.timerLabel)")
+                .font(.title)
+                .foregroundColor(.black)
+                .offset(y: -UIScreen.main.bounds.height / 2 + 100)
+            HStack {
+                Capsule()
+                    .fill((game.property.timeLimit / 30 > 0.5) ? .blue : (game.property.timeLimit / 30 > 0.25) ? .yellow : .red)
+                    .frame(height: 10)
+                    .scaleEffect(x: game.property.timeLimit / 30, y: 1, anchor: .leading)
+                    .padding()
+                    .animation(.easeIn(duration: 1), value: game.property.timeLimit)
+                Spacer()
+            }
+            .offset(y: -UIScreen.main.bounds.height / 2 + 120)
             
             Button("Shuffle") {
                 game.resetBoard()
             }
             .font(.title)
             .offset(y: UIScreen.main.bounds.height / 2 - 50)
+        }
+        .alert("Game Over!", isPresented: $game.property.gameOver) {
+            Button("OK") {
+                game.restart()
+            }
         }
     }
 }
@@ -79,7 +104,7 @@ struct BoardView: View {
             }
         }
         .padding()
-        .disabled(game.property.disable)
+        .disabled(game.property.disable && game.property.gameOver)
         .onChange(of: game.property.disable) { value in
             if !value && game.property.isMatched {
                 game.property.lastSwap = .now

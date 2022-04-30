@@ -9,16 +9,23 @@ import SwiftUI
 
 struct Game {
     var board: Array<Grid> = [Grid]()
-    var matchHint: Array<Int> = [Int]()
-    var lastSwap: Date = .now
-    var hintInterval: Double = 3
-    var showHint: Bool = false
-    var timer: Timer?
-    var isMatched: Bool = false
     var row: Int = Int(UIScreen.main.bounds.height) / Grid.size - 4
     var column: Int = Int(UIScreen.main.bounds.width) / Grid.size - 2
     var size: Int
     var disable: Bool = false
+    var gameOver: Bool = false
+    var score: Int = 0
+
+    var matchHint: Array<Int> = [Int]()
+    var lastSwap: Date = .now
+    var hintInterval: Double = 3
+    var showHint: Bool = false
+    var isMatched: Bool = false
+
+    var timer: Timer?
+    var timeLimit: TimeInterval = 30
+    var timerLabel = String()
+    var formatter = DateFormatter()
 
     init() {
         self.row = 3
@@ -29,6 +36,15 @@ struct Game {
 //            self.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
             self.board.append(Grid(Int.random(in: 1...5)))
         }
+        
+        self.formatter.dateFormat = "mm:ss"
+        let dateComponent = DateComponents(
+            calendar: .current,
+            hour: 0,
+            minute: Int(self.timeLimit) / 60,
+            second: Int(self.timeLimit) % 60
+        )
+        self.timerLabel = self.formatter.string(from: dateComponent.date!)
     }
 }
 
@@ -43,12 +59,37 @@ class GameViewModel: ObservableObject {
     @Published var property: Game = Game()
     
     init() {
+        self.restart()
+    }
+    
+    func restart() {
+        self.property = Game()
+
         let _ = self.judge(with_animation: false)
         self.setMatchHint()
         
         self.property.timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true, block: { timer in
-            if abs(self.property.lastSwap.timeIntervalSinceNow) > self.property.hintInterval && !self.property.isMatched && !self.property.disable {
-                self.property.showHint = true
+            if self.property.timeLimit != 0 && !self.property.gameOver {
+                self.property.timeLimit -= 1
+
+                let dateComponent = DateComponents(
+                    calendar: .current,
+                    hour: 0,
+                    minute: Int(self.property.timeLimit) / 60,
+                    second: Int(self.property.timeLimit) % 60
+                )
+                self.property.timerLabel = self.property.formatter.string(from: dateComponent.date!)
+                
+                if abs(self.property.lastSwap.timeIntervalSinceNow) > self.property.hintInterval && !self.property.isMatched && !self.property.disable {
+                    self.property.showHint = true
+                }
+            }
+            else {
+                self.property.timer?.invalidate()
+                
+                if self.property.timeLimit == 0 {
+                    self.property.gameOver = true
+                }
             }
         })
     }
@@ -131,13 +172,17 @@ class GameViewModel: ObservableObject {
                 let matchLength_V = checkVertical(idx + self.property.size)
                 
                 if matchLength_H >= 3 {
+                    self.property.score += (with_animation) ? 1 : 0
                     isMatchable = true
+
                     for i in idx ..< idx + matchLength_H {
                         tempBoard[i].scale = 0.1
                     }
                 }
                 if matchLength_V >= 3 {
+                    self.property.score += (with_animation) ? 1 : 0
                     isMatchable = true
+
                     for j in 0 ..< matchLength_V {
                         tempBoard[idx + j * self.property.column].scale = 0.1
                     }
