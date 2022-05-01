@@ -8,9 +8,11 @@
 import SwiftUI
 
 struct Game {
+    var shape: Game.SHAPE
     var board: Array<Grid> = [Grid]()
-    var row: Int = Int(UIScreen.main.bounds.height) / Grid.size - 4
-    var column: Int = Int(UIScreen.main.bounds.width) / Grid.size - 2
+    var validArea: Array<Int> = [Int]()
+    var row: Int = Int(UIScreen.main.bounds.height - 200) / (Grid.size + 8)
+    var column: Int = Int(UIScreen.main.bounds.width - 50) / (Grid.size + 8)
     var size: Int
     var disable: Bool = false
     var gameOver: Bool = false
@@ -23,21 +25,12 @@ struct Game {
     var isMatched: Bool = false
 
     var timer: Timer?
-    var timeLimit: TimeInterval = 30
+    var timeLimit: TimeInterval = 60
     var countDown: TimeInterval
     var timerLabel = String()
     var formatter = DateFormatter()
 
-    init() {
-        self.row = 3
-        self.column = 3
-        self.size = self.row * self.column
-
-        for _ in 0 ..< self.size * 3 {
-//            self.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
-            self.board.append(Grid(Int.random(in: 1...5)))
-        }
-
+    init(_ shape: Game.SHAPE = .NORMAL) {
         self.countDown = self.timeLimit
         self.formatter.dateFormat = "mm:ss"
 
@@ -48,10 +41,64 @@ struct Game {
             second: Int(self.countDown) % 60
         )
         self.timerLabel = self.formatter.string(from: dateComponent.date!)
+
+        self.size = self.row * self.column
+        self.shape = shape
+        self.setValidArea()
+
+        for _ in 0 ..< self.size * 3 {
+//            self.board.append(Grid(Int.random(in: 1...Grid.typeNumber)))
+            self.board.append(Grid(Int.random(in: 1...5)))
+        }
+    }
+
+    mutating func setValidArea() {
+        switch(self.shape) {
+        case .NORMAL:
+            self.validArea = Array(self.size ..< self.size * 2)
+            break
+        case .HEART:
+            let minimum = (self.row < self.column) ? self.row : self.column
+            self.row = minimum + minimum % 2 - 1
+            self.column = self.row
+            self.size = self.row * self.column
+            self.validArea = Array(self.size ..< self.size * 2)
+
+            var toRemove = [Int]()
+            let colCenter = self.column / 2
+            
+            for i in (0..<colCenter).reversed() {
+                for j in 0...i {
+                    toRemove.append(contentsOf: [
+                        (self.row - colCenter + i) * self.column + j,
+                        (self.row - colCenter + i + 1) * self.column - j - 1
+                    ])
+                }
+            }
+            
+            let rowQuarter = self.row / 4
+            
+            for i in 0..<rowQuarter {
+                for j in 0..<rowQuarter - i {
+                    toRemove.append(contentsOf: [
+                        i * self.column + j,
+                        i * self.column + colCenter + j,
+                        i * self.column + colCenter - j,
+                        (i + 1) * self.column - j - 1,
+                    ])
+                }
+            }
+            self.validArea.remove(atOffsets: IndexSet(toRemove))
+            
+            break
+        }
     }
 }
 
 extension Game {
+    enum SHAPE {
+        case NORMAL, HEART
+    }
     enum HINT: Int {
         case NONE = -1
         case TYPE0 = 0, TYPE1 = 1, TYPE2 = 2 // -__, _-_, __-
@@ -59,14 +106,20 @@ extension Game {
 }
 
 class GameViewModel: ObservableObject {
-    @Published var property: Game = Game()
+    @Published var property: Game
     
-    init() {
-        self.restart()
+    init(_ shape: Game.SHAPE = .NORMAL) {
+        self.property = Game(shape)
     }
     
+    func setShape(_ shape: Game.SHAPE = .NORMAL) {
+        self.property.shape = shape
+        self.property.setValidArea()
+    }
+
     func restart() {
-        self.property = Game()
+        self.property.timer?.invalidate()
+        self.property = Game(self.property.shape)
 
         let _ = self.judge(with_animation: false)
         self.setMatchHint()
@@ -109,7 +162,7 @@ class GameViewModel: ObservableObject {
     
     func isNextTo(idx: Int, next: Int?) -> Bool {
         if let next = next {
-            return (self.property.size ..< self.property.size * 2).contains(next) &&
+            return self.property.validArea.contains(next) &&
                    abs(next % self.property.column - idx % self.property.column) <= 1
         }
         else {
@@ -138,7 +191,8 @@ class GameViewModel: ObservableObject {
             let columnIdx = idx % self.property.column
 
             for temp in 1 ..< self.property.column - columnIdx {
-                if self.property.board[idx + temp].type == self.property.board[idx].type {
+                if self.property.validArea.contains(idx+temp) &&
+                   self.property.board[idx + temp].type == self.property.board[idx].type {
                     matchLength += 1
                 }
                 else {
@@ -155,7 +209,8 @@ class GameViewModel: ObservableObject {
             while next < self.property.size * 2 {
                 next += self.property.column
 
-                if next < self.property.size * 2,
+                if self.property.validArea.contains(next) &&
+                   next < self.property.size * 2,
                    self.property.board[next].type == self.property.board[idx].type {
                     matchLength += 1
                 }
@@ -167,12 +222,12 @@ class GameViewModel: ObservableObject {
         }
         
         var isMatchable = false
-        var tempBoard = Array(self.property.board[self.property.size ..< self.property.size * 2])
+        var tempBoard = self.property.board[self.property.size ..< self.property.size * 2]
         
-        for idx in 0 ..< self.property.size {
-            if self.property.board[idx + self.property.size].scale == 1 {
-                let matchLength_H = checkHorizontal(idx + self.property.size)
-                let matchLength_V = checkVertical(idx + self.property.size)
+        for idx in self.property.validArea {
+            if self.property.board[idx].scale == 1 {
+                let matchLength_H = checkHorizontal(idx)
+                let matchLength_V = checkVertical(idx)
                 
                 if matchLength_H >= 3 {
                     self.property.score += (with_animation) ? 1 : 0
@@ -197,7 +252,7 @@ class GameViewModel: ObservableObject {
         }
         
         if isMatchable {
-            self.property.board[self.property.size ..< self.property.size * 2] = ArraySlice(tempBoard)
+            self.property.board[self.property.size ..< self.property.size * 2] = tempBoard
             
             if with_animation {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -263,7 +318,11 @@ class GameViewModel: ObservableObject {
             return .NONE
         }
         func checkHorizontal(_ idx: Int) -> Game.HINT {
-            if self.property.column - idx % self.property.column <= 2 {
+            let isValid = self.property.validArea.contains(idx) &&
+                          self.property.validArea.contains(idx + 1) &&
+                          self.property.validArea.contains(idx + 2)
+
+            if !isValid || self.property.column - idx % self.property.column <= 2 {
                 return .NONE
             }
 
@@ -274,7 +333,11 @@ class GameViewModel: ObservableObject {
             return check(leading: leading, center: center, trailing: trailing)
         }
         func checkVertical(_ idx: Int) -> Game.HINT {
-            if self.property.row - (idx - self.property.size) / self.property.column <= 2 {
+            let isValid = self.property.validArea.contains(idx) &&
+                          self.property.validArea.contains(idx + self.property.column) &&
+                          self.property.validArea.contains(idx + self.property.column * 2)
+
+            if !isValid || self.property.row - (idx - self.property.size) / self.property.column <= 2 {
                 return .NONE
             }
 
@@ -306,7 +369,7 @@ class GameViewModel: ObservableObject {
         var hintList = [[Int]]()
         var candidateList = [[Int]]()
 
-        for idx in self.property.size ..< self.property.size * 2 {
+        for idx in self.property.validArea {
             let matchType_H = checkHorizontal(idx)
             let matchType_V = checkVertical(idx)
             var candidate0: Int?

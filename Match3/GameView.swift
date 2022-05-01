@@ -8,53 +8,86 @@
 import SwiftUI
 
 struct GameView: View {
-    @StateObject var game = GameViewModel()
+    @ObservedObject var game: GameViewModel
+    @Binding var startGame: Bool
 
     var body: some View {
         ZStack {
             BoardView(game: game)
 
-            maskView(size: CGSize(width: (Grid.size + 20) * game.property.column, height: (Grid.size + 8) * game.property.row))
+            maskView(game: game, size: CGSize(width: (Grid.size + 15) * game.property.column, height: (Grid.size + 8) * game.property.row))
                 .allowsHitTesting(false)
 
-            Text("\(game.property.score)")
-                .font(.largeTitle)
-                .foregroundColor(.black)
-                .offset(y: -UIScreen.main.bounds.height / 2 + 50)
+            VStack {
+                HStack {
+                    Button("<") {
+                        startGame = false
+                    }
+                    .font(.title)
+                    Spacer()
+                    Text("\(game.property.timerLabel)")
+                        .font(.title)
+                        .foregroundColor(.black)
+                    Spacer()
+                    Button("<") {
+                        startGame = false
+                    }
+                    .font(.title)
+                    .hidden()
+                }
+                .padding()
+                HStack {
+                    let timeLimit = game.property.timeLimit
+                    Capsule()
+                        .fill((game.property.countDown / timeLimit > 0.5) ? .blue : (game.property.countDown / timeLimit > 0.25) ? .yellow : .red)
+                        .frame(height: 10)
+                        .scaleEffect(x: game.property.countDown / timeLimit, y: 1, anchor: .leading)
+                        .padding(.horizontal)
+                        .animation(.linear(duration: 1), value: game.property.countDown)
+                    Spacer()
+                }
+            }
+            .offset(y: -UIScreen.main.bounds.height / 2 + 40)
             
-            Text("\(game.property.timerLabel)")
-                .font(.title)
-                .foregroundColor(.black)
-                .offset(y: -UIScreen.main.bounds.height / 2 + 100)
             HStack {
-                let timeLimit = game.property.timeLimit
-                Capsule()
-                    .fill((game.property.countDown / timeLimit > 0.5) ? .blue : (game.property.countDown / timeLimit > 0.25) ? .yellow : .red)
-                    .frame(height: 10)
-                    .scaleEffect(x: game.property.countDown / timeLimit, y: 1, anchor: .leading)
-                    .padding()
-                    .animation(.linear(duration: 1), value: game.property.countDown)
+                Button {
+                    game.restart()
+                } label: {
+                    Image(systemName: "gobackward")
+                        .resizable()
+                        .scaleEffect()
+                        .frame(width: 30, height: 30)
+                }
                 Spacer()
+                Text("\(game.property.score)")
+                    .font(.largeTitle)
+                    .foregroundColor(.black)
+                
+                Spacer()
+                Button {
+                    game.resetBoard()
+                } label: {
+                    Image(systemName: "shuffle")
+                        .resizable()
+                        .scaleEffect()
+                        .frame(width: 30, height: 30)
+                }
             }
-            .offset(y: -UIScreen.main.bounds.height / 2 + 120)
-            
-            Button("Shuffle") {
-                game.resetBoard()
-            }
-            .font(.title)
-            .offset(y: UIScreen.main.bounds.height / 2 - 50)
+            .padding(.horizontal, 20)
+            .offset(y: UIScreen.main.bounds.height / 2 - 40)
         }
         .alert("Game Over!", isPresented: $game.property.gameOver) {
             Button("OK") {
                 game.restart()
             }
         }
+        .navigationBarHidden(true)
     }
 }
 
 struct GameView_Previews: PreviewProvider {
     static var previews: some View {
-        GameView()
+        GameView(game: GameViewModel(), startGame: .constant(true))
     }
 }
 
@@ -64,7 +97,7 @@ struct BoardView: View {
     func dragGesture(idx: Int) -> some Gesture {
         DragGesture()
             .onEnded({ value in
-                if idx >= game.property.size, idx < game.property.size * 2 {
+                if game.property.validArea.contains(idx) {
                     game.property.disable = true
 
                     withAnimation(.easeOut(duration: 0.3)) {
@@ -117,16 +150,70 @@ struct BoardView: View {
 }
 
 struct maskView: View {
+    @StateObject var game: GameViewModel
     @State var size: CGSize
+    
+    func getCorner(_ idx: Int) -> UIRectCorner {
+        var result = UIRectCorner()
+        var temp = [false, false, false, false]
+        
+        for (i, j) in [-1, 1, -game.property.column, game.property.column].enumerated() {
+            let isValid = game.isNextTo(idx: idx, next: idx + j)
+            if !isValid  || (isValid && !game.property.validArea.contains(idx+j)){
+                temp[i] = true
+            }
+        }
+        
+        if temp[0] && temp[2] {
+            result.insert(.topLeft)
+        }
+        if temp[1] && temp[2] {
+            result.insert(.topRight)
+        }
+        if temp[0] && temp[3] {
+            result.insert(.bottomLeft)
+        }
+        if temp[1] && temp[3] {
+            result.insert(.bottomRight)
+        }
+
+        return result
+    }
 
     var body: some View {
         ZStack {
             Rectangle()
-            RoundedRectangle(cornerRadius: 10)
-                .padding(.horizontal)
-                .frame(width: size.width, height: size.height)
-                .blendMode(.destinationOut)
+            let columns = Array(repeating: GridItem(.flexible(minimum: CGFloat(Grid.size + 8), maximum: CGFloat(Grid.size + 8)), spacing: 0), count: game.property.column)
+
+            LazyVGrid(columns: columns, spacing: 0) {
+                ForEach(Array(game.property.size ..< game.property.size * 2), id: \.self) { idx in
+                    if game.property.validArea.contains(idx) {
+                        Rectangle()
+                            .blendMode(.destinationOut)
+                            .cornerRadius(10, corners: getCorner(idx))
+                    } else {
+                        Rectangle()
+                    }
+                }
+                .frame(width: CGFloat(Grid.size + 8), height: CGFloat(Grid.size + 8))
+            }
         }
         .compositingGroup()
+    }
+}
+
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape( RoundedCorner(radius: radius, corners: corners) )
+    }
+}
+
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        return Path(path.cgPath)
     }
 }

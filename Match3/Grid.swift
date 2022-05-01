@@ -22,7 +22,7 @@ struct Grid: Identifiable {
 }
 
 extension Grid {
-    static let size: Int = 50
+    static var size: Int = 50
     static var typeNumber = 11
     static let imageList: Array<String> = Array(0...typeNumber).map { "\($0)" }
 //    static let colorList: Array<Color> = Array(0...typeNumber).map { _ in
