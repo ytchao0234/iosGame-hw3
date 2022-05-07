@@ -12,43 +12,42 @@ struct GameView: View {
     @Binding var startGame: Bool
 
     var body: some View {
-        ZStack {
-            BoardView(game: game)
-
-            maskView(game: game, size: CGSize(width: (Grid.size + 15) * game.property.column, height: (Grid.size + 8) * game.property.row))
-                .allowsHitTesting(false)
-
-            VStack {
-                HStack {
-                    Button("<") {
-                        startGame = false
-                    }
-                    .font(.title)
-                    Spacer()
-                    Text("\(game.property.timerLabel)")
-                        .font(.title)
-                        .foregroundColor(.black)
-                    Spacer()
-                    Button("<") {
-                        startGame = false
-                    }
-                    .font(.title)
-                    .hidden()
+        VStack {
+            HStack {
+                Button("<") {
+                    startGame = false
                 }
-                .padding()
-                HStack {
-                    let timeLimit = game.property.timeLimit
-                    Capsule()
-                        .fill((game.property.countDown / timeLimit > 0.5) ? .blue : (game.property.countDown / timeLimit > 0.25) ? .yellow : .red)
-                        .frame(height: 10)
-                        .scaleEffect(x: game.property.countDown / timeLimit, y: 1, anchor: .leading)
-                        .padding(.horizontal)
-                        .animation(.linear(duration: 1), value: game.property.countDown)
-                    Spacer()
+                .font(.title)
+                Spacer()
+                Text("\(game.property.timerLabel)")
+                    .font(.title)
+                Spacer()
+                Button("<") {
+                    startGame = false
                 }
+                .font(.title)
+                .hidden()
             }
-            .offset(y: -UIScreen.main.bounds.height / 2 + 40)
+            .padding([.top, .horizontal])
+
+            HStack {
+                let timeLimit = game.property.timeLimit
+                Capsule()
+                    .fill((game.property.countDown / timeLimit > 0.5) ? .blue : (game.property.countDown / timeLimit > 0.25) ? .yellow : .red)
+                    .frame(height: 10)
+                    .scaleEffect(x: game.property.countDown / timeLimit, y: 1, anchor: .leading)
+                    .padding(.horizontal)
+                    .animation(.linear(duration: 1), value: game.property.countDown)
+                Spacer()
+            }
+            .padding(.horizontal)
             
+            Spacer()
+
+            BoardView(game: game)
+            
+            Spacer()
+
             HStack {
                 Button {
                     game.restart()
@@ -61,7 +60,6 @@ struct GameView: View {
                 Spacer()
                 Text("\(game.property.score)")
                     .font(.largeTitle)
-                    .foregroundColor(.black)
                 
                 Spacer()
                 Button {
@@ -73,8 +71,7 @@ struct GameView: View {
                         .frame(width: 30, height: 30)
                 }
             }
-            .padding(.horizontal, 20)
-            .offset(y: UIScreen.main.bounds.height / 2 - 40)
+            .padding(20)
         }
         .alert("Game Over!", isPresented: $game.property.gameOver) {
             Button("OK") {
@@ -120,23 +117,32 @@ struct BoardView: View {
     }
 
     var body: some View {
-        let columns = Array(repeating: GridItem(.flexible(minimum: CGFloat(Grid.size), maximum: CGFloat(Grid.size))), count: game.property.column)
-
-        LazyVGrid(columns: columns) {
+        let columns = Array(repeating: GridItem(.flexible(minimum: CGFloat(Grid.size), maximum: CGFloat(Grid.size)), spacing: 0), count: Game.column)
+        
+        LazyVGrid(columns: columns, spacing: 0) {
             ForEach(Array(game.property.board.enumerated()), id: \.element.id) { idx, grid in
-                GridView(grid: grid)
-                    .overlay {
-                        ZStack {
-                            if game.property.matchHint.contains(idx) && game.property.showHint {
-                                RoundedRectangle(cornerRadius: 5)
-                                    .stroke(.yellow, lineWidth: 3)
+                if game.property.validArea.contains(idx), grid.scale == 1 {
+                    GridView(grid: grid)
+                        .overlay {
+                            ZStack {
+                                if game.property.matchHint.contains(idx) && game.property.showHint {
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .stroke(Color(red: 0.99, green: 0.96, blue: 0.89), lineWidth: 3)
+                                }
                             }
+                            .animation(.easeOut(duration: 0.5), value: game.property.showHint)
                         }
-                        .animation(.easeOut(duration: 0.5), value: game.property.showHint)
-                    }
-                    .gesture(dragGesture(idx: idx))
+                        .padding(3)
+                        .gesture(dragGesture(idx: idx))
+                        .transition(.asymmetric(insertion: .offset(x: 0, y: -CGFloat(Grid.size * Game.row)), removal: .scale))
+                }
+                else {
+                    GridView(grid: grid).hidden()
+                }
             }
         }
+        .background(Background(game: game, columns: columns))
+        .clipped()
         .padding()
         .disabled(game.property.disable && game.property.gameOver)
         .onChange(of: game.property.disable) { value in
@@ -149,15 +155,15 @@ struct BoardView: View {
     }
 }
 
-struct maskView: View {
-    @StateObject var game: GameViewModel
-    @State var size: CGSize
+struct Background: View {
+    @ObservedObject var game: GameViewModel
+    let columns: Array<GridItem>
     
     func getCorner(_ idx: Int) -> UIRectCorner {
         var result = UIRectCorner()
         var temp = [false, false, false, false]
         
-        for (i, j) in [-1, 1, -game.property.column, game.property.column].enumerated() {
+        for (i, j) in [-1, 1, -Game.column, Game.column].enumerated() {
             let isValid = game.isNextTo(idx: idx, next: idx + j)
             if !isValid  || (isValid && !game.property.validArea.contains(idx+j)){
                 temp[i] = true
@@ -179,26 +185,19 @@ struct maskView: View {
 
         return result
     }
-
     var body: some View {
-        ZStack {
-            Rectangle()
-            let columns = Array(repeating: GridItem(.flexible(minimum: CGFloat(Grid.size + 8), maximum: CGFloat(Grid.size + 8)), spacing: 0), count: game.property.column)
-
-            LazyVGrid(columns: columns, spacing: 0) {
-                ForEach(Array(game.property.size ..< game.property.size * 2), id: \.self) { idx in
-                    if game.property.validArea.contains(idx) {
-                        Rectangle()
-                            .blendMode(.destinationOut)
-                            .cornerRadius(10, corners: getCorner(idx))
-                    } else {
-                        Rectangle()
-                    }
+        LazyVGrid(columns: columns, spacing: 0) {
+            ForEach(Array(0..<Game.size), id: \.self) { idx in
+                if game.property.validArea.contains(idx) {
+                    Color(red: 0.70, green: 0.63, blue: 0.53)
+                        .cornerRadius(10, corners: getCorner(idx))
                 }
-                .frame(width: CGFloat(Grid.size + 8), height: CGFloat(Grid.size + 8))
+                else {
+                    Color.clear
+                }
             }
+            .frame(width: CGFloat(Grid.size), height: CGFloat(Grid.size))
         }
-        .compositingGroup()
     }
 }
 

@@ -23,9 +23,10 @@ struct Grid: Identifiable {
 
 extension Grid {
     static var size: Int = 50
-    static var typeNumber = 11
+    static var typeNumber = 5
     static let imageList: Array<String> = Array(0...typeNumber).map { "\($0)" }
-//    static let colorList: Array<Color> = Array(0...typeNumber).map { _ in
-//        Color.blue
-//    }
+    
+    static func random() -> Grid {
+        return Grid(Int.random(in: 1...typeNumber))
+    }
 }
