@@ -13,66 +13,27 @@ struct GameView: View {
 
     var body: some View {
         VStack {
-            HStack {
-                Button("<") {
-                    startGame = false
-                }
-                .font(.title)
-                Spacer()
-                Text("\(game.property.timerLabel)")
-                    .font(.title)
-                Spacer()
-                Button("<") {
-                    startGame = false
-                }
-                .font(.title)
-                .hidden()
-            }
-            .padding([.top, .horizontal])
+            MenuView(game: game, startGame: $startGame)
+                .padding()
+                .background(Color(red: 0.89, green: 0.86, blue: 0.79))
+                .cornerRadius(10)
+                .padding(.top, 40)
+                .padding(7)
 
-            HStack {
-                let timeLimit = game.property.timeLimit
-                Capsule()
-                    .fill((game.property.countDown / timeLimit > 0.5) ? .blue : (game.property.countDown / timeLimit > 0.25) ? .yellow : .red)
-                    .frame(height: 10)
-                    .scaleEffect(x: game.property.countDown / timeLimit, y: 1, anchor: .leading)
-                    .padding(.horizontal)
-                    .animation(.linear(duration: 1), value: game.property.countDown)
+            VStack {
+                TimeView(game: game)
+                Spacer()
+                BoardView(game: game)
                 Spacer()
             }
-            .padding(.horizontal)
-            
-            Spacer()
-
-            BoardView(game: game)
-            
-            Spacer()
-
-            HStack {
-                Button {
-                    game.restart()
-                } label: {
-                    Image(systemName: "gobackward")
-                        .resizable()
-                        .scaleEffect()
-                        .frame(width: 30, height: 30)
-                }
-                Spacer()
-                Text("\(game.property.score)")
-                    .font(.largeTitle)
-                
-                Spacer()
-                Button {
-                    game.resetBoard()
-                } label: {
-                    Image(systemName: "shuffle")
-                        .resizable()
-                        .scaleEffect()
-                        .frame(width: 30, height: 30)
-                }
-            }
-            .padding(20)
+            .padding(2)
+            .padding(.top, 10)
+            .background(Color(red: 0.89, green: 0.86, blue: 0.79))
+            .cornerRadius(10)
+            .padding()
         }
+        .ignoresSafeArea()
+        .background(Color(red: 0.50, green: 0.43, blue: 0.33))
         .alert("Game Over!", isPresented: $game.property.gameOver) {
             Button("OK") {
                 game.restart()
@@ -85,6 +46,88 @@ struct GameView: View {
 struct GameView_Previews: PreviewProvider {
     static var previews: some View {
         GameView(game: GameViewModel(), startGame: .constant(true))
+    }
+}
+
+struct MenuView: View {
+    @ObservedObject var game: GameViewModel
+    @Binding var startGame: Bool
+    
+    var body: some View {
+        HStack {
+            Text("\(game.property.score)")
+                .font(.system(size: 30, weight: .regular, design: .monospaced))
+                .foregroundColor(Color(red: 0.99, green: 0.96, blue: 0.89))
+                .frame(width: 100, alignment: .trailing)
+                .padding(5)
+                .background(Color(red: 0.60, green: 0.53, blue: 0.43))
+                .cornerRadius(5)
+
+            Spacer()
+            
+            Group {
+                Button {
+                    game.property.timer?.invalidate()
+                    startGame = false
+                } label: {
+                    Image(systemName: "house")
+                        .resizable()
+                }
+                Button {
+                    game.restart()
+                } label: {
+                    Image(systemName: "gobackward")
+                        .resizable()
+                }
+                Button {
+                    game.resetBoard()
+                } label: {
+                    Image(systemName: "shuffle")
+                        .resizable()
+                }
+            }
+            .frame(width: 20, height: 20)
+            .foregroundColor(Color(red: 0.99, green: 0.96, blue: 0.89))
+            .padding(10)
+            .background(Color(red: 0.60, green: 0.53, blue: 0.43))
+            .clipShape(Circle())
+            .overlay {
+                Circle()
+                    .stroke(Color(red: 0.99, green: 0.96, blue: 0.89), lineWidth: 3)
+                    .scaleEffect(0.8)
+            }
+            .padding(.horizontal, 5)
+
+        }
+    }
+}
+
+struct TimeView: View {
+    @ObservedObject var game: GameViewModel
+
+    var body: some View {
+        HStack {
+            let timeLimit = game.property.timeLimit
+            let colorList = [Color(red: 0.99, green: 0.96, blue: 0.89), .yellow, .red]
+            
+            Group {
+                Label(game.property.timerLabel, systemImage: "clock")
+                    .font(.system(size: 18, weight: .regular, design: .monospaced))
+                    .foregroundColor(Color(red: 0.99, green: 0.96, blue: 0.89))
+                    .padding(5)
+
+                Capsule()
+                    .fill((game.property.countDown / timeLimit > 0.5) ? colorList[0] : (game.property.countDown / timeLimit > 0.25) ? colorList[1] : colorList[2])
+                    .frame(height: 10)
+                    .scaleEffect(x: game.property.countDown / timeLimit, y: 1, anchor: .leading)
+                    .padding(10)
+                    .animation(.linear(duration: 1), value: game.property.countDown)
+            }
+            .background(Color(red: 0.60, green: 0.53, blue: 0.43))
+            .cornerRadius(5)
+            Spacer()
+        }
+        .padding(.horizontal)
     }
 }
 
@@ -103,6 +146,8 @@ struct BoardView: View {
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         withAnimation(.easeOut(duration: 0.5)) {
+                            game.property.combo = 0
+
                             if !game.judge() {
                                 game.swapGrid(idx: idx, x: value.translation.width, y: value.translation.height)
                             }
@@ -132,7 +177,7 @@ struct BoardView: View {
                             }
                             .animation(.easeOut(duration: 0.5), value: game.property.showHint)
                         }
-                        .padding(3)
+                        .padding(5)
                         .gesture(dragGesture(idx: idx))
                         .transition(.asymmetric(insertion: .offset(x: 0, y: -CGFloat(Grid.size * Game.row)), removal: .scale))
                 }
@@ -189,7 +234,7 @@ struct Background: View {
         LazyVGrid(columns: columns, spacing: 0) {
             ForEach(Array(0..<Game.size), id: \.self) { idx in
                 if game.property.validArea.contains(idx) {
-                    Color(red: 0.70, green: 0.63, blue: 0.53)
+                    Color(red: 0.60, green: 0.53, blue: 0.43)
                         .cornerRadius(10, corners: getCorner(idx))
                 }
                 else {

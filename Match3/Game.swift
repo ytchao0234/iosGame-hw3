@@ -14,6 +14,7 @@ struct Game {
     var disable: Bool = false
     var gameOver: Bool = false
     var score: Int = 0
+    var combo: Int = 0
 
     var matchHint: Array<Int> = [Int]()
     var lastSwap: Date = .now
@@ -190,7 +191,7 @@ class GameViewModel: ObservableObject {
     
             if range.underestimatedCount >= 3 {
                 if with_animation {
-                    self.property.score += 1
+                    self.property.combo += 1
                 }
                 for i in range {
                     self.property.board[i].scale = 0.5
@@ -253,7 +254,6 @@ class GameViewModel: ObservableObject {
         let isMatchableH = checkHorizontal()
         let isMatchableV = checkVertical()
         let isMatchable = isMatchableH || isMatchableV
-        self.property.offset = Array(repeating: 0, count: Game.size)
 
         if isMatchable {
             if with_animation {
@@ -269,6 +269,11 @@ class GameViewModel: ObservableObject {
         }
         else {
             self.property.disable = false
+            
+            if with_animation {
+                let combo: Double = Double(self.property.combo)
+                self.property.score += Int(ceil((0.1 * (combo-1) + 1.0) * combo))
+            }
         }
         return isMatchable
     }
@@ -287,7 +292,6 @@ class GameViewModel: ObservableObject {
         for idx in (0 ..< Game.size) {
             if self.property.board[idx].scale < 1 {
                 self.property.board[idx] = Grid.random()
-                self.property.offset[idx] = stride(from: 0, to: idx, by: Game.column).underestimatedCount
             }
         }
 
@@ -369,8 +373,7 @@ class GameViewModel: ObservableObject {
         if hintList.count > 0 {
             self.property.matchHint = hintList.randomElement()!
         }
-        else if checkList.count > 0 {
-            let candidate = checkList.randomElement()!
+        else if checkList.count > 0, let candidate = checkList.filter({ $0.count > 3 }).randomElement() {
             self.property.matchHint = [candidate[0], candidate[1], candidate[3..<candidate.count].randomElement()!]
             let type = self.property.board[self.property.matchHint[0]].type
             self.property.board[self.property.matchHint[2]] = Grid(type)
