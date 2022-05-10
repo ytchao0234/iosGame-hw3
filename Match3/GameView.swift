@@ -9,11 +9,20 @@ import SwiftUI
 
 struct GameView: View {
     @ObservedObject var game: GameViewModel
+    let level: Int
     @Binding var startGame: Bool
+    @AppStorage var bestRecord: Int
+    
+    init(game: GameViewModel, level: Int, startGame: Binding<Bool>) {
+        self.game = game
+        self.level = level
+        self._startGame = Binding(projectedValue: startGame)
+        self._bestRecord = AppStorage(wrappedValue: 0, "bestRecord\(level)")
+    }
 
     var body: some View {
         VStack {
-            MenuView(game: game, startGame: $startGame)
+            MenuView(game: game, level: level, startGame: $startGame)
                 .padding()
                 .background(Color(red: 0.89, green: 0.86, blue: 0.79))
                 .cornerRadius(10)
@@ -34,34 +43,54 @@ struct GameView: View {
         }
         .ignoresSafeArea()
         .background(Color(red: 0.50, green: 0.43, blue: 0.33))
-        .alert("Game Over!", isPresented: $game.property.gameOver) {
+        .alert((game.property.score > bestRecord) ? "Break the Record!" : "Game Over!", isPresented: $game.property.gameOver, actions: {
             Button("OK") {
+                if game.property.score > bestRecord {
+                    bestRecord = game.property.score
+                }
                 game.restart()
             }
-        }
+        }, message: {
+            Text("Your Score: \(game.property.score)")
+        })
         .navigationBarHidden(true)
     }
 }
 
 struct GameView_Previews: PreviewProvider {
     static var previews: some View {
-        GameView(game: GameViewModel(), startGame: .constant(true))
+        GameView(game: GameViewModel(), level: 0, startGame: .constant(true))
     }
 }
 
 struct MenuView: View {
     @ObservedObject var game: GameViewModel
+    let level: Int
     @Binding var startGame: Bool
+    @AppStorage var bestRecord: Int
     
+    init(game: GameViewModel, level: Int, startGame: Binding<Bool>) {
+        self.game = game
+        self.level = level
+        self._startGame = Binding(projectedValue: startGame)
+        self._bestRecord = AppStorage(wrappedValue: 0, "bestRecord\(level)")
+    }
+
     var body: some View {
         HStack {
-            Text("\(game.property.score)")
-                .font(.system(size: 30, weight: .regular, design: .monospaced))
-                .foregroundColor(Color(red: 0.99, green: 0.96, blue: 0.89))
-                .frame(width: 100, alignment: .trailing)
-                .padding(5)
-                .background(Color(red: 0.60, green: 0.53, blue: 0.43))
-                .cornerRadius(5)
+            VStack(alignment: .leading) {
+                Text("Best Record: \(bestRecord)")
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundColor(Color(red: 0.60, green: 0.53, blue: 0.43))
+                    .frame(width: 150, alignment: .leading)
+                Text("\(game.property.score)")
+                    .font(.system(size: 24, weight: .regular, design: .monospaced))
+                    .frame(width: 100, alignment: .trailing)
+                    .foregroundColor(Color(red: 0.99, green: 0.96, blue: 0.89))
+                    .padding(5)
+                    .background(Color(red: 0.60, green: 0.53, blue: 0.43))
+                    .cornerRadius(5)
+            }
 
             Spacer()
             
@@ -189,7 +218,7 @@ struct BoardView: View {
         .background(Background(game: game, columns: columns))
         .clipped()
         .padding()
-        .disabled(game.property.disable && game.property.gameOver)
+        .disabled(game.property.disable || game.property.gameOver)
         .onChange(of: game.property.disable) { value in
             if !value && game.property.isMatched {
                 game.property.lastSwap = .now

@@ -43,7 +43,7 @@ struct ContentView: View {
                             }
                             .background(
                                 NavigationLink(isActive: $levelList[idx].startGame, destination: {
-                                    GameView(game: game, startGame: $levelList[idx].startGame)
+                                    GameView(game: game, level: idx, startGame: $levelList[idx].startGame)
                                 }, label: {
                                     EmptyView()
                                 })

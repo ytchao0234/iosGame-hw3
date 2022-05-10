@@ -40,7 +40,7 @@ struct Game {
         )
         self.timerLabel = self.formatter.string(from: dateComponent.date!)
         
-        Game.row = Int(UIScreen.main.bounds.height - 200) / (Grid.size)
+        Game.row = Int(UIScreen.main.bounds.height - 300) / (Grid.size)
         Game.column = Int(UIScreen.main.bounds.width - 50) / (Grid.size)
         Game.size = Game.row * Game.column
         self.shape = shape
@@ -100,7 +100,7 @@ extension Game {
         case TYPE0 = 0, TYPE1 = 1, TYPE2 = 2 // -__, _-_, __-
     }
     
-    static var row = Int(UIScreen.main.bounds.height - 200) / (Grid.size)
+    static var row = Int(UIScreen.main.bounds.height - 300) / (Grid.size)
     static var column = Int(UIScreen.main.bounds.width - 50) / (Grid.size)
     static var size = row * column
 }
@@ -125,7 +125,7 @@ class GameViewModel: ObservableObject {
         self.setMatchHint()
         
         self.property.timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true, block: { timer in
-            if self.property.countDown != 0 && !self.property.gameOver {
+            if self.property.countDown != 0 {
                 self.property.countDown -= 1
 
                 let dateComponent = DateComponents(
@@ -136,16 +136,14 @@ class GameViewModel: ObservableObject {
                 )
                 self.property.timerLabel = self.property.formatter.string(from: dateComponent.date!)
                 
-                if abs(self.property.lastSwap.timeIntervalSinceNow) > self.property.hintInterval && !self.property.isMatched && !self.property.disable {
+                if abs(self.property.lastSwap.timeIntervalSinceNow) > self.property.hintInterval &&
+                    !self.property.isMatched && !self.property.disable {
                     self.property.showHint = true
                 }
             }
-            else {
+            else if !self.property.disable {
                 self.property.timer?.invalidate()
-                
-                if self.property.countDown == 0 {
-                    self.property.gameOver = true
-                }
+                self.property.gameOver = true
             }
         })
     }
